@@ -5,6 +5,9 @@ date: "11/3/2018"
 output: html_document
 ---
 
+Note: While this file refers to specific examples of bycatches in certain stat areas and during certain weeks,
+I do not identify the year of the data anywhere. Thus, we retain the confidentiality in the data. 
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 library(tidyverse)
@@ -130,7 +133,9 @@ newdat <- newdat.b %>%
 rm(newdat.b)
 
 ```
-                 
+
+Using the above data, we can explore different relative weightings of stat areas. 
+
     week_number  stats multitrips multichin singlechin singletrips singletripswchin propsingletripswbycatch
 1             4 625600          2        14        119          92               58              0.63043478
 2             4 635600          2        14        170          54               45              0.83333333
@@ -148,5 +153,43 @@ newdat.b %>% filter(multichin==0)
 single %>% filter(week_number==30 & stats%in%c("675430","675500"))
 single2 %>% filter(week_number==30 & stats%in%c("675430","675500"))
 
+chindat %>% filter(nstat>1 & week_number==4 & stat%in%c("625600","635600","645600","645530")) %>% 
+  dplyr::select(-c(season,stat3)) %>%
+  mutate(stat=as.character(stat)) %>% 
+  inner_join(newdat %>% 
+               dplyr::select(propsingletripswbycatch,stat=stats,week_number))
+```
+
+#  Let's look at an example. We see that in week 4, there is a case were 7 chinook were caught in either stat area 625600 or 645600.
+#  The primary stat area for the data is listed as 625600. However, when we look at newdat and filter by week 4 and stat areas 625600 and 645600,
+#  we see that 5/5 trips (100%) caught Chinook in 645600 that week while only 58/92 (63%) of trips caught salmon in 625600.
+
+```{r}
+chindat %>% filter(nstat>1 & week_number==4 & stat%in%c("625600","635600","645600","645530")) %>% 
+  dplyr::select(-c(season,stat3)) %>%
+  mutate(stat=as.character(stat)) %>% 
+  inner_join(newdat %>% 
+               dplyr::select(propsingletripswbycatch,stat=stats,week_number))
+
+newdat %>% filter(stats=="645600" & week_number==4)
+newdat %>% filter(stats=="625600" & week_number==4)
 ```
                     
+Let's look more explicitly at the primary stat area to which bycatch has been apportioned and the proportion of better observed trips with bycatch in those areas. 
+```{r}                    
+tempdat <- newdat.a %>% 
+  dplyr::select(week_number,stats) %>% 
+  inner_join(single) %>% 
+  rename(stat=stats) %>% 
+inner_join(chindat  %>% 
+             dplyr::select(-c(season,stat3)) %>%
+             mutate(stat=as.character(stat))) %>% 
+  dplyr::select(-c(cruise,catcher_vessel_adfg)) %>% 
+  filter(nstat>1 & chin>0) %>% 
+  dplyr::select(permit,haul_offload,week_number,singlechin,singletrips,singletripswchin,chin,stat,stat2,propsingletripswbycatch)
+
+tempdat %>% arrange(haul_offload) 
+
+
+
+```                    
