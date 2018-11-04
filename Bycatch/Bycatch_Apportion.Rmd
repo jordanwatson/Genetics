@@ -1,0 +1,152 @@
+---
+title: "Bycatch_apportionment"
+author: "Jordan Watson"
+date: "11/3/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(readxl)
+```
+
+Some trips with only a single stat area have no salmon. 
+Some trips with only a single stat area have salmon.
+Some trips with multiple stat areas have no salmon.
+Some trips with multiple stat areas have salmon. 
+
+Catcher processors report their salmon at the haul level.
+Shoreside delivers are reported at the trip level. 
+
+Given the above observation of salmon and no-salmon in hauls and trips as described above, can we probabilistically apportion salmon within a given week to one stat area versus another when shoreside vessels deliver salmon after having fished in multiple stat areas?
+
+```{r loadData}
+
+data <- read_csv("rcode/Data/Genetic BSAI Salmon Bycatch.csv") %>% 
+  rename_all(tolower) %>% 
+  dplyr::select(-c(first_name,last_name,akfin_load_date)) %>% 
+                  rename(malechumclip=`sum(male_chum_finclip)`,      
+                         femalechumclip=`sum(female_chum_finclip)`,    
+                         chumclip=`sum(total_chum_finclip)`,   
+                         malechinclip=`sum(male_chinook_finclip)`,  
+                         femalechinclip=`sum(female_chinook_finclip)`, 
+                         chinclip=`sum(total_chinook_finclip)`,  
+                         chin=`sum(number_chinook)`,         
+                         chum=`sum(number_chum)`,            
+                         coho=`sum(number_coho)`,           
+                         pink=`sum(number_pink)`,            
+                         sockeye=`sum(number_sockeye)`,     
+                         unid=`sum(number_unidentified)`) %>% 
+  mutate(salmon=chin+chum+coho+pink+sockeye+unid)
+
+
+chindat <- data %>% 
+  rename(stat=primary_adfg_stat_area_code,
+         stat2=adfg_stat_area_codes) %>% 
+         mutate(stat3=gsub(", ","",stat2),
+                nstat=nchar(stat3)/6) %>% 
+  dplyr::select(cruise,permit,season,haul_offload,week_number,processing_sector,catcher_vessel_adfg,
+                stat,nstat,stat2,stat3,chin)
+  
+chindat %>% 
+  ggplot(aes(factor(week_number),fill=processing_sector)) + 
+  geom_bar(stat="identity") + 
+  theme_bw()
+
+unique(chindat$stat)
+unique(chindat$stat2)
+unique(chindat$processing_sector)
+
+summary(chindat %>% filter(processing_sector=="S"))
+```
+
+```{r}
+In a given week, how many of the hauls in a stat area were from trips where hauls occurred in only that stat area?
+chindat %>% 
+  filter(processing_sector=="S") %>% 
+  ggplot(aes(week_number,fill=factor(nstat))) + 
+  geom_bar(stat="count")
+```
+
+```{r SingleAreaTrips}
+single <- chindat %>% 
+  filter(nstat==1) %>% 
+  dplyr::select(week_number,stats=stat,chin) %>% 
+  group_by(week_number,stats) %>% 
+  summarise(singlechin=sum(chin),
+            singletrips=n(),
+            singletripswchin=length(chin[chin>0])) %>% 
+  mutate(stats=as.character(stats)) %>% 
+  data.frame
+```
+
+```{r MultipleAreaTrips}
+multi <- chindat %>% 
+  filter(nstat>1) %>% 
+  mutate(index=1:n())
+```  
+
+When we put these together, what does it look like? 
+
+```{r}
+newdat.a <- multi %>% 
+  right_join(data.frame(index=sort(rep(multi$index,multi$nstat)),
+                        stats=unlist(lapply(multi$index,function(x)strsplit(gsub(" ","",multi$stat2[x]), "[,]"))))) %>% 
+  dplyr::select(-c(processing_sector,catcher_vessel_adfg,season,cruise,permit,stat3,nstat)) %>% 
+  data.frame 
+
+newdat.b <- newdat.a %>% 
+  mutate(stats=as.character(stats)) %>% 
+  group_by(week_number,stats) %>% 
+  summarise(multitrips=n(),
+            multichin=sum(chin)) 
+
+#  There are a few trips that went to multiple areas and caught no salmon. We can use these to update the results of the single 
+#  area data by increasing the number of trips that went to areas and caught no salmon. 
+
+single <- bind_rows(newdat.b %>% 
+            filter(multichin==0) %>% 
+            rename(singletrips=multitrips,
+                   singlechin=multichin) %>% 
+            mutate(singletripswchin=0),
+          single) %>% 
+  group_by(week_number,stats) %>% 
+  summarise(singlechin=sum(singlechin),
+            singletrips=sum(singletrips),
+            singletripswchin=sum(singletripswchin),
+            propsingletripswbycatch=singletripswchin/singletrips)
+
+#  Now remove these trips with no salmon from the multi-trip data
+newdat.b <- newdat.b %>% 
+  filter(multichin>0)
+
+#  Join the two datasets. 
+newdat <- newdat.b %>% 
+  left_join(single) %>% 
+  data.frame
+
+#  To avoid accidentally tallying more zero salmon trips onto our datasets, remove newdat.b
+rm(newdat.b)
+
+```
+                 
+    week_number  stats multitrips multichin singlechin singletrips singletripswchin propsingletripswbycatch
+1             4 625600          2        14        119          92               58              0.63043478
+2             4 635600          2        14        170          54               45              0.83333333
+3             4 645530          6       375        150           7                7              1.00000000
+4             4 645600          8       389        135           5                5              1.00000000                 
+                 
+```{r}
+newdat.a %>% filter(week_number==4 & grepl("625600",stat2))
+single %>% filter(week_number==4 & stats%in%c("625600","635600"))
+single2 %>% filter(week_number==4 & stats%in%c("625600","635600"))
+
+multi %>% filter(week_number==4 & grepl("625600",stat2))
+
+newdat.b %>% filter(multichin==0)
+single %>% filter(week_number==30 & stats%in%c("675430","675500"))
+single2 %>% filter(week_number==30 & stats%in%c("675430","675500"))
+
+```
+                    
