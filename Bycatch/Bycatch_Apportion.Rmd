@@ -190,6 +190,15 @@ inner_join(chindat  %>%
 
 tempdat %>% arrange(haul_offload) 
 
+#  Need to spread the myval column so that there is a column for each of the different stat areas within a particular stat combo. 
+#  This will yield up to 7 columns, I think, but in most cases there will just be two and it should make it easier to see different results.
+newdat.a %>% 
+  dplyr::select(week_number,stats,stat,stat2) %>% 
+  inner_join(single) %>% 
+  mutate(myval=paste0(round(propsingletripswbycatch,2)," (",stats,")"))
+
+
+
 
 
 ```                    
