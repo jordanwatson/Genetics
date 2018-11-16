@@ -13,6 +13,7 @@ library(forcats)
 library(viridis)
 library(gridExtra)
 library(grid)
+library(stringi)
 
 #---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
 # Color palette ----
@@ -65,16 +66,115 @@ cwkend <- as.numeric(strftime(goa.c.end,format="%W"))
 dwkstart <- as.numeric(strftime(goa.d.start,format="%W")) 
 dwkend <- as.numeric(strftime(goa.d.end,format="%W")) 
 
+
+
+#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
+# Assign clusters ----
+#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
+
+
+#----------------------------------------------------------------------------------------------
+
+data <- read_excel("rcode/Data/psc_all_catch_and_genetics.xlsx",sheet="Genetic BSAI Salmon Bycatch")
+
+#----------------------------------------------------------------------------------------------
+#  Prepare data
+#----------------------------------------------------------------------------------------------
+
+#  Read-in AKFIN data
+akfin <- read_excel("Data/AKFIN_2013_chum_samples 2017-12-20.xlsx",sheet="Salmon Genetic Analysis") %>% 
+  mutate(mycluster=ADFG_STAT_AREA_CODES)
+
+#  Read-in excel file that has the ADFG / Cluster area assignment
+lkp <- read_excel("Data/ADFG and Cluster assignment.xlsx")
+
+#  Perform a match that links adfg areas with their cluster
+akfin <- akfin %>% 
+  mutate(mycluster=stri_replace_all_fixed(akfin$mycluster, lkp$`ADFG area`, lkp$Cluster, vectorize_all=FALSE))
+
+#  Some adfg area groups may all be in the same cluster (e.g., 1,1,1,1), so we can simplify these to just be cluster 1.
+#  In such cases, the first and last characters are the same. So if the first and last character is the same, simplify. 
+#  If the first and last characters are not the same (e.g., 1,1,1,4), then leave things as they are. 
+akfin$ucluster <- ifelse(substr(akfin$mycluster,1,1)==substr(akfin$mycluster,nchar(akfin$mycluster),nchar(akfin$mycluster)),
+                         as.vector(sapply(akfin$mycluster, function(txt){ 
+                           paste(unique(unlist(strsplit(txt, ", "))), collapse=",")
+                         })),akfin$mycluster)
+
+#  Inspect the areas and clusters (for QA/QC)
+akfin %>% 
+  dplyr::select(ADFG_STAT_AREA_CODES,ucluster) %>% 
+  data.frame
+
+akfin %>% 
+  dplyr::select(ADFG_STAT_AREA_CODES,ucluster) %>% 
+  data.frame %>% 
+  filter(ucluster=="1, 1, 1, 1, 2")
+
+
+
 #---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
 # Tally PSC abundances by groupings ----
 #---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
 
+#  During which week does early season start?
+earlystart <- 23
+earlyend <- 29
+middlestart <- 30
+middleend <- 34
+latestart <- 35
+lateend <- 43
+
+#  During which week does the season start for spatial clusters?
+earlycluster <- 23
+latecluster <- 33
+
+
+
+genos <- read_excel("rcode/Data/Successfully genotyped.xlsx",sheet="n=3491 All Scores & Binary") %>% 
+  rename_all(tolower) %>% 
+  mutate(period=ifelse(week_number<earlystart,NA,
+                       ifelse(week_number>=earlystart & week_number<=earlyend,"Early",
+                              ifelse(week_number>=middlestart & week_number<=middleend,"Middle","Late"))),
+         period=fct_relevel(period,"Early","Middle"),
+         clusterperiod=ifelse(week_number<earlycluster,NA,
+                              ifelse(week_number>=earlycluster & week_number<latecluster,"Early","Late")))
+
+  genos %>% 
+    summarise(`B-season`=length(week_number[week_number>=earlystart & fmp_area=="BSAI"]),
+              `BS Early`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
+              `BS Middle`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
+              `BS Late`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
+              `517`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
+              `521`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
+              `517 Early`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
+              `517 Middle`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
+              `517 Late`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
+              `521 Early`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
+              `521 Middle`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
+              `521 Late`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
+              `WBS`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
+              `EBS`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
+              `GOA`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
+              `Cluster 1 Early`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
+              `Cluster 1 Late`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
+              `Cluster 2 Early`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
+              `Cluster 2 Late`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
+              `Cluster 3 Early`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
+              `Cluster 3 Late`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
+              `Cluster 4 Early`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
+              `Cluster 4 Late`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]))
+
+
+
+
+
+
 #  Read in Bering Sea data
 data <- read_excel("rcode/Data/psc_all_catch_and_genetics.xlsx",sheet="Genetic BSAI Salmon Bycatch") %>% 
   rename_all(tolower) %>% 
-  mutate(period=ifelse(week_number<23,NA,
-                       ifelse(week_number>22 & week_number<30,"Early",
-                              ifelse(week_number>29 & week_number<35,"Middle","Late"))),
+  mutate(period=ifelse(week_number<earlystart,NA,
+                       ifelse(week_number>=earlystart & week_number<=earlyend,"Early",
+                              ifelse(week_number>=middlestart & week_number<=middleend,"Middle","Late"))),
          period=fct_relevel(period,"Early","Middle"))
 
 wbs <- c(521,523,524)
@@ -82,6 +182,43 @@ wbs <- c(521,523,524)
 #  Read in GOA data
 goa <- read_excel("rcode/Data/psc_all_catch_and_genetics.xlsx",sheet="Genetic GOA Salmon Bycatch") %>% 
   rename_all(tolower)
+
+
+psctotals <- bind_rows(data %>% 
+                         filter(season=="B") %>% 
+                         summarise(group="B-season",
+                                   chum=sum(`sum(number_chum)`)),
+                       data %>% 
+                         filter(!is.na(period)) %>% 
+                         group_by(period) %>% 
+                         summarise(chum=sum(`sum(number_chum)`)) %>% 
+                         ungroup %>% 
+                         rename(group=period) %>% 
+                         mutate(group=paste("BS",group,sep=" ")),
+                       data %>% 
+                         filter(nmfs_area %in%c(517,521) & season=="B") %>% 
+                         group_by(nmfs_area) %>% 
+                         summarise(chum=sum(`sum(number_chum)`)) %>% 
+                         rename(group=nmfs_area) %>% 
+                         mutate(group=as.character(group)),
+                       data %>% 
+                         filter(nmfs_area %in%c(517,521) & !is.na(period)) %>% 
+                         group_by(nmfs_area,period) %>% 
+                         summarise(chum=sum(`sum(number_chum)`)) %>% 
+                         mutate(group=paste(nmfs_area,period,sep=" ")) %>% 
+                         ungroup %>% 
+                         dplyr::select(-c(nmfs_area,period)),
+                       data %>% 
+                         filter((nmfs_area %in% wbs) & season=="B") %>% 
+                         summarise(group="WBS",
+                                   chum=sum(`sum(number_chum)`)),
+                       data %>% 
+                         filter((!nmfs_area %in% wbs) & season=="B") %>% 
+                         summarise(group="EBS",
+                                   chum=sum(`sum(number_chum)`)),
+                       goa %>% 
+                         summarise(group="GOA",
+                                   chum=sum(`sum(number_nonchinook)`)))
 
 
 psctotals <- bind_rows(data %>% 
@@ -127,6 +264,37 @@ psctotals <- bind_rows(data %>%
                       chum=sum(`sum(number_nonchinook)`),
                       samples=sum(`sum(total_chum_finclip)`)))
 
+
+#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
+#  Table 5 ----
+#  Tally number of samples in the early, middle, and late portions of B season
+#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
+
+psctotals %>% 
+  filter(group%in%c("BS Early","BS Middle","BS Late")) %>%
+  mutate(Weeks=ifelse(group=="BS Early",
+                      paste(earlystart,earlyend,sep="-"),
+                      ifelse(group=="BS Middle",
+                             paste(middlestart,middleend,sep="-"),
+                             paste(latestart,lateend,sep="-"))),
+         group=gsub("BS ","",group),
+         Dates="") %>% 
+  dplyr::select(`Time period`=group,Weeks,Dates,`Number of samples`=samples) %>% 
+  write.csv("Tables/Table_5.csv",row.names = FALSE)
+ 
+ 
+#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
+#  Table 6 ----
+#  Tally number of samples in the early, middle, and late portions of B season by NMFS area
+#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
+
+psctotals %>% 
+  filter(group%in%c("517 Early","517 Middle","517 Late","521 Early","521 Middle","521 Late")) %>%
+  mutate(nmfs=c("517","","","521","",""),
+         time=substr(group,5,nchar(group)),
+         samples=formatC(samples, format="d", big.mark=",")) %>% 
+  dplyr::select(`Reporting Area`=nmfs,`Time period`=time,`Number of samples`=samples) %>% 
+  write.csv("Tables/Table_6.csv",row.names = FALSE)
 
 #---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
 #  Pull P=0 values from Bayes data ----
@@ -314,7 +482,7 @@ mtext(side = 4, line = 1.5, 'Genetic samples',cex=0.75)
 mtext(side = 1, line = 0.65, 'Statistical week',cex=0.75)
 mtext(side = 2, line = 1.25, 'Chum catch x 1,000',cex=0.75)
 legend("topleft",
-       legend=c(paste0("Chum samples (",formatC(sum(data$chum), format="d", big.mark=","),")"),
+       legend=c(paste0("Chum catch (",formatC(sum(data$chum), format="d", big.mark=","),")"),
                 paste0("Genetic samples (",formatC(sum(data$samples), format="d", big.mark=","),")")),
        lty=c(1,2), lwd=c(1,1),col=c("black", strongred),cex=0.5)
 axis(side=3,at=month.labels$center,labels=NA,tck=-0.02)
@@ -934,7 +1102,7 @@ p1 <- newdat %>%
                           "SW Alaska",
                           "Eastern GOA/PNW")) %>% 
   ggplot(aes(stock,mymean,fill=year,ymin=ymin,ymax=ymax)) + 
-  geom_bar(stat="identity",position="dodge",color="black") + 
+  geom_bar(stat="identity",position="dodge",color="black",size=0.25) + 
   scale_fill_manual(values=c(strongred,bluegrey,strongblue),name="") + 
   theme_bw() + 
   theme(axis.text.y=element_text(color="black"),
@@ -1006,7 +1174,7 @@ p2 <- newnum %>%
                            "SW Alaska",
                            "Eastern GOA/PNW")) %>% 
   ggplot(aes(stock,mymean,fill=year,ymin=ymin,ymax=ymax)) + 
-  geom_bar(stat="identity",position="dodge",color="black") + 
+  geom_bar(stat="identity",position="dodge",color="black",size=0.25) + 
   scale_fill_manual(values=c(strongred,bluegrey,strongblue),
                     name="",
                     labels=c(paste0("mean 1994,1995,2005-2010 (",formatC(round(1000*sum(num.early$mymean)), format="d", big.mark=","),")"),
@@ -1032,5 +1200,619 @@ grid.draw(rbind(ggplotGrob(p1), ggplotGrob(p2), size = "last"))
 dev.off()
 
 
+#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
+#  Figure 12 Stock proportion across years ----
+#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
 
-                
+
+goaprop <- read_excel("rcode/Data/psc_all_catch_and_genetics.xlsx",sheet="historicGOA_stockproportions") %>% 
+  rename(ymin=`2.5%`,ymax=`97.5%`) %>% 
+  dplyr::select(stock=Region,mymean=Mean,ymin,ymax,year)
+
+#  For 2017, I added the data from stockcomp to the worksheet in the Excel Workbook. 
+#  To do the same for subsequent years, you should be able to just run the following code.
+#  Double check the Region names though, as there have been some changes across years, 
+#  particularly with Upper/Middle Yukon. 
+stockcomp %>% 
+  filter(group=="GOA") %>% 
+  rename(ymin=`2.5%`,ymax=`97.5%`) %>% 
+  dplyr::select(stock=Region,mymean=Mean,ymin,ymax) %>% 
+  mutate(year=as.numeric(this.year))
+
+
+png("Figures/figure12.png",width=6,height=3,units="in",res=300)
+goaprop %>% 
+  mutate(stock=fct_relevel(stock,
+                           "SE Asia",
+                           "NE Asia",
+                           "Western AK",
+                           "Upper/Middle Yukon",
+                           "SW Alaska",
+                           "Eastern GOA/PNW")) %>% 
+  ggplot(aes(stock,mymean,fill=factor(year),ymin=ymin,ymax=ymax)) + 
+  geom_bar(stat="identity",position="dodge",color="black",size=0.25) + 
+  geom_errorbar(width=0.2,position=position_dodge(0.9),size=0.25) + 
+  theme_bw() + 
+  theme(axis.text=element_text(color="black"),
+        axis.title=element_text(color="black"),
+        legend.position=c(0.15,0.7),
+        panel.grid=element_blank(),
+        axis.title.x = element_blank()) +  
+  scale_fill_manual(values=mypalette,
+                    name="Gulf of Alaska\ngroundfishfisheries") + 
+  scale_x_discrete(labels=function(x) str_wrap(as.character(x),width=12)) + 
+  ylab("Stock proportion")
+dev.off()
+
+png("Figures/figure12_border.png",width=6,height=3,units="in",res=300)
+goaprop %>% 
+  mutate(stock=fct_relevel(stock,
+                           "SE Asia",
+                           "NE Asia",
+                           "Western AK",
+                           "Upper/Middle Yukon",
+                           "SW Alaska",
+                           "Eastern GOA/PNW")) %>% 
+  ggplot(aes(stock,mymean,fill=factor(year),ymin=ymin,ymax=ymax)) + 
+  geom_bar(stat="identity",position="dodge",color="white") + 
+  geom_errorbar(width=0.2,position=position_dodge(0.9),size=0.25) + 
+  theme_bw() + 
+  theme(axis.text=element_text(color="black"),
+        axis.title=element_text(color="black"),
+        legend.position=c(0.15,0.7),
+        panel.grid=element_blank(),
+        axis.title.x = element_blank()) +  
+  scale_fill_manual(values=mypalette,
+                    name="Gulf of Alaska\ngroundfishfisheries") + 
+  scale_x_discrete(labels=function(x) str_wrap(as.character(x),width=12)) + 
+  ylab("Stock proportion")
+dev.off()
+
+         
+#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
+#  Figure 13 Stock proportion across years ----
+#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
+
+propperiod <- read_excel("rcode/Data/psc_all_catch_and_genetics.xlsx",sheet="Fig13_historic_stock_proportion") %>% 
+  mutate(Region=fct_recode(Region,
+                           "Upper/Middle Yukon"="Up/Mid Yuk",
+                           "Upper/Middle Yukon"="Up/Mid Yukon",
+                           "Eastern GOA/PNW"="E GOA/PNW",
+                           "Western AK"="W Alaska"))
+
+#  Propperiod (above) already contains 2017 because I added it to the Excel spreadsheet.
+#  To get the current year to add to the Excel sheet, run the following code for current.1
+#  and copy and paste it into the Excel sheet. This will make Figure 13 easier and then next year,
+#  the data will already be updated.
+current.1 <- stockcomp %>% 
+  filter(group%in%c("BS Early","BS Middle","BS Late")) %>% 
+  rename(Lower=`2.5%`,Upper=`97.5%`) %>% 
+  mutate(year=as.numeric(this.year),
+         group=fct_relevel(group,"BS Early","BS Middle","BS Late")) %>% 
+  arrange(group)
+
+current.1 %>% 
+  dplyr::select(Region,year,group,Mean) %>% 
+  spread(group,Mean) %>% 
+  inner_join(current.1 %>% 
+               dplyr::select(Region,year,group,Lower) %>% 
+               spread(group,Lower) %>% 
+               rename(LowEarly=`BS Early`,LowMid=`BS Middle`,LowLate=`BS Late`)) %>% 
+  inner_join(current.1 %>% 
+               dplyr::select(Region,year,group,Upper) %>% 
+               spread(group,Upper) %>% 
+               rename(UpEarly=`BS Early`,UpMid=`BS Middle`,UpLate=`BS Late`)) %>% 
+  dplyr::select(year,everything()) %>% 
+  mutate(Region=fct_relevel(Region,
+                           "SE Asia",
+                           "NE Asia",
+                           "Western AK",
+                           "Up/Mid Yuk",
+                           "SW Alaska",
+                           "E GOA/PNW")) %>% 
+  arrange(Region) %>% 
+  dplyr::select(year,Region,`BS Early`,`BS Middle`,`BS Late`,LowEarly,UpEarly,LowMid,UpMid,LowLate,UpLate)
+#  This ends the creation of current 1. Paste the above output into the Excel sheet. 
+
+oldyears <- 2005:2010
+midyears <- 2011:(this.year-1)
+currentyear <- this.year
+
+
+old <- propperiod %>% 
+  filter(year%in%c(oldyears)) %>% 
+  dplyr::select(year,Region,Early,Middle,Late) %>% 
+  gather(period,meanprop,-c(year,Region)) %>% 
+  group_by(Region,period) %>% 
+  summarise(mymean=mean(meanprop),
+            mysd=sd(meanprop),
+            myse=mysd/sqrt(n())) %>% 
+  ungroup %>% 
+  mutate(ymin=mymean-myse,
+         ymax=mymean+myse,
+         temporal="2005-2010")
+
+mid <- propperiod %>% 
+  filter(year%in%c(midyears)) %>% 
+  dplyr::select(year,Region,Early,Middle,Late) %>% 
+  gather(period,meanprop,-c(year,Region)) %>% 
+  group_by(Region,period) %>% 
+  summarise(mymean=mean(meanprop),
+            mysd=sd(meanprop),
+            myse=mysd/sqrt(n())) %>% 
+  ungroup %>% 
+  mutate(ymin=mymean-myse,
+         ymax=mymean+myse,
+         temporal=paste(midyears[1],midyears[length(midyears)],sep="-"))
+
+currentyear <- propperiod %>% 
+  filter(year==as.numeric(this.year)) %>% 
+  dplyr::select(Region,Early,Middle,Late) %>% 
+  gather(period,meanprop,-c(Region)) %>% 
+  inner_join(bind_rows(propperiod %>% 
+            filter(year==as.numeric(this.year)) %>% 
+            dplyr::select(year,Region,Lower,Upper) %>% 
+            mutate(period="Early"),
+          propperiod %>% 
+            filter(year==as.numeric(this.year)) %>% 
+            dplyr::select(year,Region,Lower=Lower__1,Upper=Upper__1) %>% 
+            mutate(period="Middle"),
+          propperiod %>% 
+            filter(year==as.numeric(this.year)) %>% 
+            dplyr::select(year,Region,Lower=Lower__2,Upper=Upper__2) %>% 
+            mutate(period="Late"))) %>% 
+  mutate(mymean=meanprop,
+         ymin=Lower,
+         ymax=Upper,
+         temporal=as.character(this.year))
+
+
+combineddata <- bind_rows(old,
+          mid,
+          currentyear)
+
+#  Three panels (one for each time period).
+#  X-axis is region and colors are early,middle,late
+combineddata %>% 
+  rename(stock=Region) %>% 
+  mutate(stock=fct_relevel(stock,
+                           "SE Asia",
+                           "NE Asia",
+                           "Western AK",
+                           "Upper/Middle Yukon",
+                           "SW Alaska",
+                           "Eastern GOA/PNW"),
+         period=fct_relevel(period,
+                            "Early",
+                            "Middle",
+                            "Late")) %>% 
+  ggplot(aes(stock,mymean,fill=factor(period),ymin=ymin,ymax=ymax)) + 
+  geom_bar(stat="identity",position="dodge",color="black") + 
+  geom_errorbar(width=0.2,position=position_dodge(0.9)) + 
+  theme_bw() + 
+  theme(axis.text=element_text(color="black"),
+        axis.title=element_text(color="black"),
+        legend.position="top",
+        panel.grid.minor=element_blank(),
+        axis.title.x = element_blank()) +  
+  scale_fill_manual(values=mypalette,
+                    name="") + 
+  scale_x_discrete(labels=function(x) str_wrap(as.character(x),width=12)) + 
+  ylab("Stock proportion") + 
+  facet_wrap(~temporal,ncol=1)
+
+#  Three panels (one for early, middle, late.).
+#  X-axis is region and colors are year periods
+combineddata %>% 
+  rename(stock=Region) %>% 
+  mutate(stock=fct_relevel(stock,
+                           "SE Asia",
+                           "NE Asia",
+                           "Western AK",
+                           "Upper/Middle Yukon",
+                           "SW Alaska",
+                           "Eastern GOA/PNW"),
+         period=fct_relevel(period,
+                            "Early",
+                            "Middle",
+                            "Late")) %>% 
+  filter(stock!="SW Alaska") %>% 
+  ggplot(aes(stock,mymean,fill=factor(temporal),ymin=ymin,ymax=ymax)) + 
+  geom_bar(stat="identity",position="dodge",color="black") + 
+  geom_errorbar(width=0.2,position=position_dodge(0.9)) + 
+  theme_bw() + 
+  theme(axis.text=element_text(color="black"),
+        axis.title=element_text(color="black"),
+        legend.position="top",
+        panel.grid.minor=element_blank(),
+        axis.title.x = element_blank()) +  
+  scale_fill_manual(values=mypalette,
+                    name="") + 
+  scale_x_discrete(labels=function(x) str_wrap(as.character(x),width=12)) + 
+  ylab("Stock proportion") + 
+  facet_wrap(~period,ncol=1)
+
+combineddata %>% 
+  rename(stock=Region) %>% 
+  mutate(stock=fct_relevel(stock,
+                           "SE Asia",
+                           "NE Asia",
+                           "Western AK",
+                           "Upper/Middle Yukon",
+                           "SW Alaska",
+                           "Eastern GOA/PNW"),
+         period=fct_relevel(period,
+                            "Early",
+                            "Middle",
+                            "Late")) %>% 
+  filter(stock!="SW Alaska") %>% 
+  ggplot(aes(period,mymean,fill=factor(temporal),ymin=ymin,ymax=ymax)) + 
+  geom_bar(stat="identity",position="dodge",color="black") + 
+  geom_errorbar(width=0.2,position=position_dodge(0.9)) + 
+  theme_bw() + 
+  theme(axis.text=element_text(color="black"),
+        axis.title=element_text(color="black"),
+        legend.position="top",
+        panel.grid.minor=element_blank(),
+        axis.title.x = element_blank()) +  
+  scale_fill_manual(values=mypalette,
+                    name="") + 
+  scale_x_discrete(labels=function(x) str_wrap(as.character(x),width=12)) + 
+  ylab("Stock proportion") + 
+  facet_wrap(~stock)
+       
+
+
+multiyears <- propperiod %>% 
+  filter(year>2010) %>% 
+  dplyr::select(Region,Early,Middle,Late,year) %>% 
+  gather(period,meanprop,-c(Region,year)) %>% 
+  inner_join(bind_rows(propperiod %>% 
+                         filter(year>2010) %>% 
+                         dplyr::select(year,Region,Lower,Upper) %>% 
+                         mutate(period="Early"),
+                       propperiod %>% 
+                         filter(year>2010) %>% 
+                         dplyr::select(year,Region,Lower=Lower__1,Upper=Upper__1) %>% 
+                         mutate(period="Middle"),
+                       propperiod %>% 
+                         filter(year>2010) %>% 
+                         dplyr::select(year,Region,Lower=Lower__2,Upper=Upper__2) %>% 
+                         mutate(period="Late"))) %>% 
+  mutate(mymean=meanprop,
+         ymin=Lower,
+         ymax=Upper,
+         temporal=year)
+
+png("Figures/figure13_2011to2017_facet_year_color_stock.png",width=10,height=7,units="in",res=300)
+multiyears %>% 
+  rename(stock=Region) %>% 
+  mutate(stock=fct_relevel(stock,
+                           "SE Asia",
+                           "NE Asia",
+                           "Western AK",
+                           "Upper/Middle Yukon",
+                           "SW Alaska",
+                           "Eastern GOA/PNW"),
+         period=fct_relevel(period,
+                            "Early",
+                            "Middle",
+                            "Late")) %>% 
+  filter(stock!="SW Alaska") %>% 
+  ggplot(aes(period,mymean,fill=factor(stock),ymin=ymin,ymax=ymax)) + 
+  geom_bar(stat="identity",position="dodge",color="black",size=0.25) + 
+  geom_errorbar(width=0.2,position=position_dodge(0.9),size=0.25) + 
+  theme_bw() + 
+  theme(axis.text=element_text(color="black"),
+        axis.title=element_text(color="black"),
+        legend.position="top",
+        panel.grid.minor=element_blank(),
+        axis.title.x = element_blank()) +  
+  scale_fill_manual(values=mypalette,
+                    name="") + 
+  scale_x_discrete(labels=function(x) str_wrap(as.character(x),width=12)) + 
+  ylab("Stock proportion") + 
+  facet_wrap(~temporal)
+dev.off()
+
+png("Figures/figure13_2011to2017_facet_stock.png",width=10,height=7,units="in",res=300)
+multiyears %>% 
+  rename(stock=Region) %>% 
+  mutate(stock=fct_relevel(stock,
+                           "SE Asia",
+                           "NE Asia",
+                           "Western AK",
+                           "Upper/Middle Yukon",
+                           "SW Alaska",
+                           "Eastern GOA/PNW"),
+         period=fct_relevel(period,
+                            "Early",
+                            "Middle",
+                            "Late")) %>% 
+  filter(stock!="SW Alaska") %>% 
+  ggplot(aes(factor(temporal),mymean,fill=factor(period),ymin=ymin,ymax=ymax)) + 
+  geom_bar(stat="identity",position="dodge",color="black",size=0.25) + 
+  geom_errorbar(width=0.2,position=position_dodge(0.9),size=0.25) + 
+  theme_bw() + 
+  theme(axis.text=element_text(color="black"),
+        axis.title=element_text(color="black"),
+        legend.position="top",
+        panel.grid.minor=element_blank(),
+        axis.title.x = element_blank()) +  
+  scale_fill_manual(values=mypalette,
+                    name="") + 
+  scale_x_discrete(labels=function(x) str_wrap(as.character(x),width=12)) + 
+  ylab("Stock proportion") + 
+  facet_wrap(~stock)
+dev.off()
+
+
+png("Figures/figure13_2011to2017_alltimes.png",width=10,height=7,units="in",res=300)
+multiyears %>% 
+  rename(stock=Region) %>% 
+  mutate(stock=fct_relevel(stock,
+                           "SE Asia",
+                           "NE Asia",
+                           "Western AK",
+                           "Upper/Middle Yukon",
+                           "SW Alaska",
+                           "Eastern GOA/PNW"),
+         period=fct_relevel(period,
+                            "Early",
+                            "Middle",
+                            "Late"),
+         stock2=paste0(stock,"(",period,")"),
+         stock2=fct_relevel(stock2,
+                            "SE Asia(Early)",
+                            "NE Asia(Early)",
+                            "Western AK(Early)",
+                            "Upper/Middle Yukon(Early)",
+                            "SW Alaska(Early)",
+                            "Eastern GOA/PNW(Early)",     
+                            "SE Asia(Middle)",    
+                            "NE Asia(Middle)",          
+                            "Western AK(Middle)",
+                            "Upper/Middle Yukon(Middle)", 
+                            "SW Alaska(Middle)",          
+                            "Eastern GOA/PNW(Middle)",   
+                            "SE Asia(Late)",              
+                            "NE Asia(Late)",              
+                            "Western AK(Late)",           
+                            "Upper/Middle Yukon(Late)",  
+                            "SW Alaska(Late)",            
+                            "Eastern GOA/PNW(Late)" )) %>% 
+  filter(stock!="SW Alaska") %>% 
+  ggplot(aes(factor(temporal),mymean,ymin=ymin,ymax=ymax)) + 
+  geom_bar(stat="identity",position="dodge",color="black",fill=strongblue,size=0.25) + 
+  geom_errorbar(width=0.2,position=position_dodge(0.9),size=0.25) + 
+  theme_bw() + 
+  theme(axis.text.x=element_text(color="black",angle=90,vjust=0.5,hjust=1),
+        axis.text.y=element_text(color="black"),
+        axis.title=element_text(color="black"),
+        legend.position="top",
+        panel.grid.minor=element_blank(),
+        axis.title.x = element_blank()) +  
+  scale_fill_manual(values=mypalette,
+                    name="") + 
+  scale_x_discrete(labels=function(x) str_wrap(as.character(x),width=12)) + 
+  ylab("Stock proportion") + 
+  facet_wrap(~stock2,ncol=5)
+dev.off()
+
+
+png("Figures/figure13_2011to2017_alltimes_noborder.png",width=10,height=7,units="in",res=300)
+multiyears %>% 
+  rename(stock=Region) %>% 
+  mutate(stock=fct_relevel(stock,
+                           "SE Asia",
+                           "NE Asia",
+                           "Western AK",
+                           "Upper/Middle Yukon",
+                           "SW Alaska",
+                           "Eastern GOA/PNW"),
+         period=fct_relevel(period,
+                            "Early",
+                            "Middle",
+                            "Late"),
+         stock2=paste0(stock,"(",period,")"),
+         stock2=fct_relevel(stock2,
+                            "SE Asia(Early)",
+                            "NE Asia(Early)",
+                            "Western AK(Early)",
+                            "Upper/Middle Yukon(Early)",
+                            "SW Alaska(Early)",
+                            "Eastern GOA/PNW(Early)",     
+                            "SE Asia(Middle)",    
+                            "NE Asia(Middle)",          
+                            "Western AK(Middle)",
+                            "Upper/Middle Yukon(Middle)", 
+                            "SW Alaska(Middle)",          
+                            "Eastern GOA/PNW(Middle)",   
+                            "SE Asia(Late)",              
+                            "NE Asia(Late)",              
+                            "Western AK(Late)",           
+                            "Upper/Middle Yukon(Late)",  
+                            "SW Alaska(Late)",            
+                            "Eastern GOA/PNW(Late)" )) %>% 
+  filter(stock!="SW Alaska") %>% 
+  ggplot(aes(factor(temporal),mymean,ymin=ymin,ymax=ymax)) + 
+  geom_bar(stat="identity",position="dodge",fill=strongblue) + 
+  geom_errorbar(width=0.2,position=position_dodge(0.9)) + 
+  theme_bw() + 
+  theme(axis.text.x=element_text(color="black",angle=90,vjust=0.5,hjust=1),
+        axis.text.y=element_text(color="black"),
+        axis.title=element_text(color="black"),
+        legend.position="top",
+        panel.grid.minor=element_blank(),
+        axis.title.x = element_blank()) +  
+  scale_fill_manual(values=mypalette,
+                    name="") + 
+  scale_x_discrete(labels=function(x) str_wrap(as.character(x),width=12)) + 
+  ylab("Stock proportion") + 
+  facet_wrap(~stock2,ncol=5)
+dev.off()
+
+
+png("Figures/figure13_2011to2017_alltimes_xaxis.png",width=10,height=7,units="in",res=300)
+multiyears %>% 
+  rename(stock=Region) %>% 
+  mutate(stock=fct_relevel(stock,
+                           "SE Asia",
+                           "NE Asia",
+                           "Western AK",
+                           "Upper/Middle Yukon",
+                           "SW Alaska",
+                           "Eastern GOA/PNW"),
+         period=fct_relevel(period,
+                            "Early",
+                            "Middle",
+                            "Late"),
+         stock2=paste0(stock,"(",period,")"),
+         stock2=fct_relevel(stock2,
+                            "SE Asia(Early)",
+                            "NE Asia(Early)",
+                            "Western AK(Early)",
+                            "Upper/Middle Yukon(Early)",
+                            "SW Alaska(Early)",
+                            "Eastern GOA/PNW(Early)",     
+                            "SE Asia(Middle)",    
+                            "NE Asia(Middle)",          
+                            "Western AK(Middle)",
+                            "Upper/Middle Yukon(Middle)", 
+                            "SW Alaska(Middle)",          
+                            "Eastern GOA/PNW(Middle)",   
+                            "SE Asia(Late)",              
+                            "NE Asia(Late)",              
+                            "Western AK(Late)",           
+                            "Upper/Middle Yukon(Late)",  
+                            "SW Alaska(Late)",            
+                            "Eastern GOA/PNW(Late)" )) %>% 
+  filter(stock!="SW Alaska") %>% 
+  ggplot(aes(factor(temporal),mymean,ymin=ymin,ymax=ymax)) + 
+  geom_bar(stat="identity",position="dodge",fill=strongblue,color="black",size=0.25) + 
+  geom_errorbar(width=0.2,position=position_dodge(0.9),size=0.25) + 
+  theme_bw() + 
+  theme(axis.text.x=element_text(color="black"),
+        axis.text.y=element_text(color="black"),
+        axis.title=element_text(color="black"),
+        legend.position="top",
+        panel.grid.minor=element_blank(),
+        axis.title.x = element_blank()) +  
+  scale_fill_manual(values=mypalette,
+                    name="") + 
+  scale_x_discrete(breaks=unique(multiyears$year),labels=c("2011","","2013","","2015","","2017")) + 
+  ylab("Stock proportion") + 
+  facet_wrap(~stock2,ncol=5)
+dev.off()
+
+#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
+#  Figure 14 Areas WBS and EBS----
+#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
+
+#  Read the data and filter for B season and any spatial groupings you want. In this case, EBS and WBS.
+data <- read_excel("rcode/Data/psc_all_catch_and_genetics.xlsx",sheet="Genetic BSAI Salmon Bycatch") %>% 
+  rename_all(tolower) %>% 
+  filter(nmfs_area %in%c(509,513,516,517,519,521,523,524) & season=="B") %>%
+  mutate(area=ifelse(nmfs_area<521,"EBS","WBS")) %>% 
+  group_by(area) %>%
+  summarise(vessels=length(unique(catcher_vessel_adfg)),
+            chum=sum(`sum(number_chum)`),
+            samples=sum(`sum(total_chum_finclip)`))
+
+current.1 <- stockdata %>% 
+  filter(group%in%c("WBS","EBS")) %>% 
+  rename(Lower=`2.5%`,Upper=`97.5%`) %>% 
+  mutate(year=as.numeric(this.year),
+         group=fct_relevel(group,
+                           "WBS","EBS"),
+         Region=fct_recode(Region,
+                           "Upper/Middle Yukon"="Up/Mid Yuk",
+                           "Upper/Middle Yukon"="Up/Mid Yukon",
+                           "Eastern GOA/PNW"="E GOA/PNW")) %>% 
+  arrange(group) 
+
+
+png("Figures/figure14.png",width=6,height=3,units="in",res=300)
+current.1 %>% 
+  rename(stock=Region) %>% 
+  mutate(stock=fct_relevel(stock,
+                           "SE Asia",
+                           "NE Asia",
+                           "Western AK",
+                           "Upper/Middle Yukon",
+                           "SW Alaska",
+                           "Eastern GOA/PNW"),
+         area=ifelse(group=="WBS",
+                     paste0("West of 170°W (n=",formatC(data$samples[data$area=="WBS"], format="d", big.mark=","),")"),
+                     paste0("East of 170°W (n=",formatC(data$samples[data$area=="EBS"], format="d", big.mark=","),")"))) %>% 
+  ggplot(aes(stock,Mean,fill=factor(area),ymin=Lower,ymax=Upper)) + 
+  geom_bar(stat="identity",position="dodge",color="black",size=0.25) + 
+  geom_errorbar(width=0.2,position=position_dodge(0.9),size=0.25) + 
+  theme_bw() + 
+  theme(axis.text=element_text(color="black"),
+        axis.title=element_text(color="black"),
+        legend.position=c(0.75,0.75),
+        legend.box="horizontal",
+        legend.background = element_blank(),
+        panel.grid=element_blank(),
+        axis.title.x = element_blank()) +  
+  scale_fill_manual(values=mypalette,
+                    name="2016 Bering Sea\npollock fishery") + 
+  scale_x_discrete(labels=function(x) str_wrap(as.character(x),width=12)) + 
+  ylab("Stock proportion")
+dev.off()
+
+
+#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
+#  Figure 15 Areas 517 and 521----
+#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
+
+
+current.1 <- stockcomp %>% 
+  filter(group%in%c("517 Early","517 Middle","517 Late",
+                    "521 Early","521 Middle","521 Late")) %>% 
+  rename(Lower=`2.5%`,Upper=`97.5%`) %>% 
+  mutate(year=as.numeric(this.year),
+         group=fct_relevel(group,
+                           "517 Early","517 Middle","517 Late",
+                           "521 Early","521 Middle","521 Late"),
+         Region=fct_recode(Region,
+                           "Upper/Middle Yukon"="Up/Mid Yuk",
+                           "Upper/Middle Yukon"="Up/Mid Yukon",
+                           "Eastern GOA/PNW"="E GOA/PNW",
+                           "Western AK"="W Alaska")) %>% 
+  arrange(group) 
+
+
+
+png("Figures/figure15.png",width=6,height=6.5,units="in",res=300)
+current.1 %>% 
+  rename(stock=Region) %>% 
+  mutate(period=ifelse(grepl("Early",group),"Early",ifelse(grepl("Middle",group),"Middle","Late")),
+         area=ifelse(grepl("517",group),"Area 517","Area 521"),
+         stock=fct_relevel(stock,
+                           "SE Asia",
+                           "NE Asia",
+                           "Western AK",
+                           "Upper/Middle Yukon",
+                           "SW Alaska",
+                           "Eastern GOA/PNW")) %>% 
+  ggplot(aes(stock,Mean,fill=factor(period),ymin=Lower,ymax=Upper)) + 
+  geom_bar(stat="identity",position="dodge",color="black",size=0.25) + 
+  geom_errorbar(width=0.2,position=position_dodge(0.9),size=0.25) + 
+  theme_bw() + 
+  theme(axis.text=element_text(color="black"),
+        axis.title=element_text(color="black"),
+        legend.position=c(0.75,0.85),
+        legend.box="horizontal",
+        legend.background = element_blank(),
+        panel.grid=element_blank(),
+        axis.title.x = element_blank()) +  
+  scale_fill_manual(values=mypalette,
+                    name="") + 
+  scale_x_discrete(labels=function(x) str_wrap(as.character(x),width=12)) + 
+  ylab("Stock proportion") + 
+  facet_wrap(~area,ncol=1)
+dev.off()
+
+
