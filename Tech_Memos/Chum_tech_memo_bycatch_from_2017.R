@@ -43,7 +43,13 @@ mylabel[seq(5,52,by=5)] <- seq(5,52,by=5)
 
 Region=c("SE Asia","NE Asia","Western AK","Up/Mid Yuk","SW Alaska","E GOA/PNW")
 
-mygroupings <- c("GOA","B-season","BS Early","BS Middle","BS Late","517","517 Early","517 Middle","517 Late","521","521 Early","521 Middle","521 Late","EBS","WBS")
+mygroupings <- c("GOA","B-season","BS Early","BS Middle","BS Late",
+                 "517","517 Early","517 Middle","517 Late",
+                 "521","521 Early","521 Middle","521 Late",
+                 "EBS",
+                 "WBS",
+                 "Cluster 1 Early","Cluster 2 Early","Cluster 3 Early","Cluster 4 Early",
+                 "Cluster 1 Late","Cluster 2 Late","Cluster 3 Late","Cluster 4 Late")
 
 this.year <- 2017
 
@@ -67,26 +73,15 @@ dwkstart <- as.numeric(strftime(goa.d.start,format="%W"))
 dwkend <- as.numeric(strftime(goa.d.end,format="%W")) 
 
 
-
 #---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
-# Assign clusters ----
+# Assign spatial clusters to total PSC data----
 #---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
 
-
-#----------------------------------------------------------------------------------------------
-
-data <- read_excel("rcode/Data/psc_all_catch_and_genetics.xlsx",sheet="Genetic BSAI Salmon Bycatch")
-
-#----------------------------------------------------------------------------------------------
-#  Prepare data
-#----------------------------------------------------------------------------------------------
-
-#  Read-in AKFIN data
-akfin <- read_excel("Data/AKFIN_2013_chum_samples 2017-12-20.xlsx",sheet="Salmon Genetic Analysis") %>% 
+akfin <- read_excel("rcode/Data/psc_all_catch_and_genetics.xlsx",sheet="Genetic BSAI Salmon Bycatch") %>% 
   mutate(mycluster=ADFG_STAT_AREA_CODES)
 
 #  Read-in excel file that has the ADFG / Cluster area assignment
-lkp <- read_excel("Data/ADFG and Cluster assignment.xlsx")
+lkp <- read_excel("rcode/Data/ADFG and Cluster assignment.xlsx",sheet="All_Areas")
 
 #  Perform a match that links adfg areas with their cluster
 akfin <- akfin %>% 
@@ -101,19 +96,13 @@ akfin$ucluster <- ifelse(substr(akfin$mycluster,1,1)==substr(akfin$mycluster,nch
                          })),akfin$mycluster)
 
 #  Inspect the areas and clusters (for QA/QC)
-akfin %>% 
-  dplyr::select(ADFG_STAT_AREA_CODES,ucluster) %>% 
-  data.frame
-
-akfin %>% 
-  dplyr::select(ADFG_STAT_AREA_CODES,ucluster) %>% 
-  data.frame %>% 
-  filter(ucluster=="1, 1, 1, 1, 2")
-
+#akfin %>% 
+# dplyr::select(ADFG_STAT_AREA_CODES,ucluster) %>% 
+#  data.frame
 
 
 #---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
-# Tally PSC abundances by groupings ----
+# Tally sample numbers for successful genotypes
 #---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
 
 #  During which week does early season start?
@@ -128,8 +117,10 @@ lateend <- 43
 earlycluster <- 23
 latecluster <- 33
 
+#  Which nmfs areas define the western bering sea?
+wbs <- c(521,523,524)
 
-
+#  Read in data for successfully genotyped samples
 genos <- read_excel("rcode/Data/Successfully genotyped.xlsx",sheet="n=3491 All Scores & Binary") %>% 
   rename_all(tolower) %>% 
   mutate(period=ifelse(week_number<earlystart,NA,
@@ -137,47 +128,59 @@ genos <- read_excel("rcode/Data/Successfully genotyped.xlsx",sheet="n=3491 All S
                               ifelse(week_number>=middlestart & week_number<=middleend,"Middle","Late"))),
          period=fct_relevel(period,"Early","Middle"),
          clusterperiod=ifelse(week_number<earlycluster,NA,
-                              ifelse(week_number>=earlycluster & week_number<latecluster,"Early","Late")))
+                              ifelse(week_number>=earlycluster & week_number<latecluster,"Early","Late")),
+         cluster=ifelse(is.na(cluster),-99,cluster)) %>% 
+  rename(nmfs_area=nmfs_reporting_area)
 
-  genos %>% 
+#  Tally genotyped samples
+genossum <- genos %>% 
     summarise(`B-season`=length(week_number[week_number>=earlystart & fmp_area=="BSAI"]),
               `BS Early`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
-              `BS Middle`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
-              `BS Late`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
-              `517`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
-              `521`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
-              `517 Early`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
-              `517 Middle`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
-              `517 Late`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
-              `521 Early`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
-              `521 Middle`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
-              `521 Late`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
-              `WBS`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
-              `EBS`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
-              `GOA`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
-              `Cluster 1 Early`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
-              `Cluster 1 Late`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
-              `Cluster 2 Early`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
-              `Cluster 2 Late`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
-              `Cluster 3 Early`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
-              `Cluster 3 Late`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
-              `Cluster 4 Early`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]),
-              `Cluster 4 Late`=length(week_number[between(week_number,earlystart,earlyend) & fmp_area=="BSAI"]))
-
-
-
-
+              `BS Middle`=length(week_number[between(week_number,middlestart,middleend) & fmp_area=="BSAI"]),
+              `BS Late`=length(week_number[between(week_number,latestart,lateend) & fmp_area=="BSAI"]),
+              `517`=length(week_number[week_number>=earlystart & nmfs_area==517]),
+              `521`=length(week_number[week_number>=earlystart & nmfs_area==521]),
+              `517 Early`=length(week_number[between(week_number,earlystart,earlyend) & nmfs_area==517]),
+              `517 Middle`=length(week_number[between(week_number,middlestart,middleend) & nmfs_area==517]),
+              `517 Late`=length(week_number[between(week_number,latestart,lateend)  & nmfs_area==517]),
+              `521 Early`=length(week_number[between(week_number,earlystart,earlyend)  & nmfs_area==521]),
+              `521 Middle`=length(week_number[between(week_number,middlestart,middleend)  & nmfs_area==521]),
+              `521 Late`=length(week_number[between(week_number,latestart,lateend)  & nmfs_area==521]),
+              `WBS`=length(week_number[week_number>=earlystart & nmfs_area%in%wbs]),
+              `EBS`=length(week_number[!(nmfs_area %in% wbs) & fmp_area=="BSAI"]),
+              `GOA`=length(week_number[fmp_area=="GOA"]),
+              `Cluster 1 Early`=length(week_number[week_number>=earlycluster & week_number<latecluster & cluster==1]),
+              `Cluster 1 Late`=length(week_number[week_number>=latecluster & cluster==1]),
+              `Cluster 2 Early`=length(week_number[week_number>=earlycluster & week_number<latecluster & cluster==2]),
+              `Cluster 2 Late`=length(week_number[week_number>=latecluster & cluster==2]),
+              `Cluster 3 Early`=length(week_number[week_number>=earlycluster & week_number<latecluster & cluster==3]),
+              `Cluster 3 Late`=length(week_number[week_number>=latecluster & cluster==3]),
+              `Cluster 4 Early`=length(week_number[week_number>=earlycluster & week_number<latecluster & cluster==4]),
+              `Cluster 4 Late`=length(week_number[week_number>=latecluster & cluster==4])) %>% 
+  gather(group,samples) %>% 
+  data.frame
 
 
 #  Read in Bering Sea data
-data <- read_excel("rcode/Data/psc_all_catch_and_genetics.xlsx",sheet="Genetic BSAI Salmon Bycatch") %>% 
+#data <- read_excel("rcode/Data/psc_all_catch_and_genetics.xlsx",sheet="Genetic BSAI Salmon Bycatch") %>% 
+#  rename_all(tolower) %>% 
+#  mutate(period=ifelse(week_number<earlystart,NA,
+#                       ifelse(week_number>=earlystart & week_number<=earlyend,"Early",
+#                              ifelse(week_number>=middlestart & week_number<=middleend,"Middle","Late"))),
+#         period=fct_relevel(period,"Early","Middle"))
+
+#  Read in Bering Sea data using the "akfin" object created above, for which spatial clusters were assigned.
+data <- akfin %>% 
   rename_all(tolower) %>% 
+  rename(cluster=ucluster) %>% 
   mutate(period=ifelse(week_number<earlystart,NA,
                        ifelse(week_number>=earlystart & week_number<=earlyend,"Early",
                               ifelse(week_number>=middlestart & week_number<=middleend,"Middle","Late"))),
-         period=fct_relevel(period,"Early","Middle"))
+         period=fct_relevel(period,"Early","Middle"),
+         clusterperiod=ifelse(week_number<earlycluster,NA,
+                              ifelse(week_number>=earlycluster & week_number<latecluster,"Early","Late")),
+         cluster=ifelse(is.na(cluster),-99,cluster))
 
-wbs <- c(521,523,524)
 
 #  Read in GOA data
 goa <- read_excel("rcode/Data/psc_all_catch_and_genetics.xlsx",sheet="Genetic GOA Salmon Bycatch") %>% 
@@ -218,51 +221,19 @@ psctotals <- bind_rows(data %>%
                                    chum=sum(`sum(number_chum)`)),
                        goa %>% 
                          summarise(group="GOA",
-                                   chum=sum(`sum(number_nonchinook)`)))
+                                   chum=sum(`sum(number_nonchinook)`)),
+                       data %>% 
+                         filter(cluster %in%c("1","2","3","4") & !is.na(clusterperiod)) %>% 
+                         group_by(cluster,clusterperiod) %>% 
+                         summarise(chum=sum(`sum(number_chum)`)) %>% 
+                         mutate(group=paste("Cluster",cluster,clusterperiod,sep=" ")) %>% 
+                         ungroup %>% 
+                         dplyr::select(-c(cluster,clusterperiod))) %>% 
+  mutate(chum=as.integer(chum))
 
-
-psctotals <- bind_rows(data %>% 
-            filter(season=="B") %>% 
-            summarise(group="B-season",
-                      chum=sum(`sum(number_chum)`),
-                      samples=sum(`sum(total_chum_finclip)`)),
-          data %>% 
-            filter(!is.na(period)) %>% 
-            group_by(period) %>% 
-            summarise(chum=sum(`sum(number_chum)`),
-                      samples=sum(`sum(total_chum_finclip)`)) %>% 
-            ungroup %>% 
-            rename(group=period) %>% 
-            mutate(group=paste("BS",group,sep=" ")),
-          data %>% 
-            filter(nmfs_area %in%c(517,521) & season=="B") %>% 
-            group_by(nmfs_area) %>% 
-            summarise(chum=sum(`sum(number_chum)`),
-                      samples=sum(`sum(total_chum_finclip)`)) %>% 
-            rename(group=nmfs_area) %>% 
-            mutate(group=as.character(group)),
-          data %>% 
-            filter(nmfs_area %in%c(517,521) & !is.na(period)) %>% 
-            group_by(nmfs_area,period) %>% 
-            summarise(chum=sum(`sum(number_chum)`),
-                      samples=sum(`sum(total_chum_finclip)`)) %>% 
-            mutate(group=paste(nmfs_area,period,sep=" ")) %>% 
-            ungroup %>% 
-            dplyr::select(-c(nmfs_area,period)),
-          data %>% 
-            filter((nmfs_area %in% wbs) & season=="B") %>% 
-            summarise(group="WBS",
-                      chum=sum(`sum(number_chum)`),
-                      samples=sum(`sum(total_chum_finclip)`)),
-          data %>% 
-            filter((!nmfs_area %in% wbs) & season=="B") %>% 
-            summarise(group="EBS",
-                      chum=sum(`sum(number_chum)`),
-                      samples=sum(`sum(total_chum_finclip)`)),
-          goa %>% 
-            summarise(group="GOA",
-                      chum=sum(`sum(number_nonchinook)`),
-                      samples=sum(`sum(total_chum_finclip)`)))
+psctotals <- psctotals %>% 
+  inner_join(genossum) %>% 
+  data.frame
 
 
 #---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
