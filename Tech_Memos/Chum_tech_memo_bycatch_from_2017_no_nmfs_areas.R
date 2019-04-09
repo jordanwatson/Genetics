@@ -439,8 +439,8 @@ data %>%
         axis.title=element_text(color="black")) + 
   ylab("Number of fish x 1,000") + 
   xlab("Year") + 
-  annotate("text",x=1994,y=0.9*max(data$psc)/1000,label="Bering Sea\nchum salmon PSC",size=4,hjust=0) + 
-  scale_x_continuous(breaks=seq(1994,this.year),labels=c("1994","","1996","","1998","","2000","","2002","","2004","","2006","","2008","","2010","","2012","","2014","","2016",""))
+  annotate("text",x=1991,y=0.9*max(data$psc)/1000,label="Bering Sea\nchum salmon PSC",size=4,hjust=0) + 
+  scale_x_continuous(breaks=seq(1991,this.year),labels=c("","1992","","1994","","1996","","1998","","2000","","2002","","2004","","2006","","2008","","2010","","2012","","2014","","2016",""))
 dev.off()
 
 
@@ -468,26 +468,27 @@ month.labels <- data.frame(month=as.numeric(strftime(seq(as.Date(paste0(this.yea
 png("Figures/figure3.png",width=6.5,height=4,units="in",res=300)
 par(mar = c(2,2.75,1.5,3.5))
 #with(data, plot(week_number, chum2,type="n",ylim=c(0,mymax*1.2),ylab="Chum catch x 1,000",las=1))
-with(data, plot(week_number, chum2, type="l", col="black",las=1,axes=F,xlab=NA,ylab=NA,lwd=2))
+with(data, plot(week_number, chum2, type="l", col="black",las=1,axes=F,xlab=NA,ylab=NA,lwd=3))
 box()
 axis(side = 2,las=1, labels=NA,tck=-0.02)
 axis(side = 2,las=1, lwd = 0,line=-0.5,cex.axis=0.95)
 axis(side = 1,las=1,at=seq(5,40,by=5), labels=NA,tck=-0.02)
 axis(side = 1,las=1,at=seq(5,40,by=5),lwd = 0,line=-.75,cex.axis=0.95)
 par(new = T)
-with(data, plot(week_number, samples, type="l",lwd=2, lty=2,col=strongred, axes=F, xlab=NA, ylab=NA))
+with(data, plot(week_number, samples, type="l",lwd=4, lty=2,col=strongred, axes=F, xlab=NA, ylab=NA))
 axis(side = 4,las=1,labels=NA,tck=-0.02)
 axis(side = 4,at=c(1000,2000,3000,4000),las=1,lwd=0,line=-0.5,cex.axis=0.95,labels=formatC(c(1000,2000,3000,4000),big.mark=","))
 mtext(side = 4, line = 2.4, 'Genetic samples',cex=0.95)
 mtext(side = 1, line = 1.1, 'Statistical week',cex=0.95)
 mtext(side = 2, line = 1.95, 'Chum catch x 1,000',cex=0.95)
 legend("topleft",
-       legend=c(paste0("Chum catch (",formatC(sum(data$chum), format="d", big.mark=","),")"),
+       legend=c("",
+                paste0("Chum catch (",formatC(sum(data$chum), format="d", big.mark=","),")"),
                 paste0("Genetic samples (",formatC(sum(data$samples), format="d", big.mark=","),")")),
-       lty=c(1,2), lwd=c(1,1),col=c("black", strongred),cex=0.75)
+       lty=c(0,1,2), lwd=c(0,1,1),col=c("black","black", strongred),cex=1,bty="n")
 axis(side=3,at=month.labels$center,labels=NA,tck=-0.02)
 axis(side=3,at=month.labels$center,labels=month.labels$mymonth,lwd=0,cex.axis=0.9,line=-0.5)
-abline(v=23,lty=1)
+#abline(v=23,lty=1)
 dev.off()
 
 #---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
@@ -516,14 +517,14 @@ data2 <- data %>%
 #  This is also the chunk where I divide the number of chum by 1000 to simplify the y-axis scale.
 data3 <- data2 %>% 
   mutate(week=ifelse(week_number %in% c(23:25),25,
-                     ifelse(week_number%in%c(37:41),37,week_number))) %>% 
+                     ifelse(week_number%in%c(37:42),37,week_number))) %>% 
   group_by(nmfs,week_number) %>% 
   summarise(vessels=sum(vessels),
             chum=sum(chum)/1000,
             samples=sum(samples),
             week=week[1],
             week2=ifelse(week==25,"23-25",
-                         ifelse(week==37,"37-41",
+                         ifelse(week==37,"37-42",
                                 as.character(week)))) %>% 
   arrange(vessels) %>% 
   filter(vessels>2) #  Filter out combos with fewer than 3 vessels.
@@ -594,7 +595,7 @@ p1 <-  ggplot() +
         axis.text=element_text(color="black"),
         axis.title=element_text(color="black")) +
   scale_fill_manual(values=mypalette[1:nmfs_n],name="") + 
-  scale_x_continuous(breaks=min(data3$week):max(data3$week),labels=c("23-25",paste(26:36),"37-41")) +
+  scale_x_continuous(breaks=min(data3$week):max(data3$week),labels=c("23-25",paste(26:36),"37-42")) +
   ylab("Number of Fish x 1,000") + 
   annotate("text",x=34,y=0.8*chummax,label="Chum salmon PSC",size=4)
 
@@ -608,7 +609,7 @@ p2 <-  ggplot() +
         axis.text=element_text(color="black"),
         axis.title=element_text(color="black")) +
   scale_fill_manual(values=mypalette[1:nmfs_n],name="") + 
-  scale_x_continuous(breaks=min(data3$week):max(data3$week),labels=c("23-25",paste(26:36),"37-41")) +
+  scale_x_continuous(breaks=min(data3$week):max(data3$week),labels=c("23-25",paste(26:36),"37-42")) +
   xlab("Statistical Week") + 
   ylab("Number of Fish x 1,000") + 
   annotate("text",x=34,y=0.8*samplesmax/1000,label="Chum salmon genetic samples",size=4)
@@ -639,34 +640,34 @@ summary(lm(samples~chum,data=data)) #0.89
 labelsequence <- paste(formatC(seq(0,max(data$chum),by=5000),format="d",big.mark=","))
 labelsequence <- seq(0,max(data$chum),by=5000)
 
+#png("Figures/figure5.png",width=6.5,height=3,units="in",res=300)
+#data %>% 
+#  ggplot(aes(chum,samples)) + 
+#  geom_smooth(method="lm",se=FALSE,size=0.65) + 
+#  geom_point(size=0.95) + 
+#  theme_bw() + 
+#  theme(panel.grid=element_blank(),
+#        axis.text=element_text(color="black"),
+#        axis.title=element_text(color="black"))  + 
+#  xlab("Number of chum salmon PSC per vessel") + 
+#  ylab("Number of genetic samples") + 
+#  annotate("text",x=labelsequence[3],y=0.95*max(data$samples),label=paste("Correlation coefficient\n r = ",round(cor(data$chum,data$samples),2))) + 
+#  scale_x_continuous(breaks=labelsequence,labels=formatC(labelsequence,format="d",big.mark=",")) +
+#  coord_cartesian(expand=FALSE,xlim=c(0,max(data$chum*1.01))) 
+#dev.off()
+
 png("Figures/figure5.png",width=6.5,height=3,units="in",res=300)
 data %>% 
   ggplot(aes(chum,samples)) + 
-  geom_smooth(method="lm",se=FALSE,size=0.65) + 
-  geom_point(size=0.95) + 
+  geom_abline(intercept=0,slope=1/30,size=1.) + 
+  geom_point(size=1.75,color=strongblue) + 
   theme_bw() + 
   theme(panel.grid=element_blank(),
         axis.text=element_text(color="black"),
         axis.title=element_text(color="black"))  + 
   xlab("Number of chum salmon PSC per vessel") + 
   ylab("Number of genetic samples") + 
-  annotate("text",x=labelsequence[3],y=0.95*max(data$samples),label=paste("Correlation coefficient\n r = ",round(cor(data$chum,data$samples),2))) + 
-  scale_x_continuous(breaks=labelsequence,labels=formatC(labelsequence,format="d",big.mark=",")) +
-  coord_cartesian(expand=FALSE,xlim=c(0,max(data$chum*1.01))) 
-dev.off()
-
-png("Figures/figure5_slope_onethirtieth.png",width=6.5,height=3,units="in",res=300)
-data %>% 
-  ggplot(aes(chum,samples)) + 
-  geom_abline(intercept=0,slope=1/30,color=strongblue) + 
-  geom_point(size=0.95) + 
-  theme_bw() + 
-  theme(panel.grid=element_blank(),
-        axis.text=element_text(color="black"),
-        axis.title=element_text(color="black"))  + 
-  xlab("Number of chum salmon PSC per vessel") + 
-  ylab("Number of genetic samples") + 
-  annotate("text",x=labelsequence[3],y=0.95*max(data$samples),label=paste("Correlation coefficient\n r = ",round(cor(data$chum,data$samples),2))) + 
+  annotate("text",x=labelsequence[3],y=0.90*max(data$samples),label=paste("Correlation coefficient\n r = ",round(cor(data$chum,data$samples),2))) + 
   scale_x_continuous(breaks=labelsequence,labels=formatC(labelsequence,format="d",big.mark=",")) +
   coord_cartesian(expand=FALSE,xlim=c(0,max(data$chum*1.01)),ylim=c(0,max(data$samples*1.05))) 
 dev.off()
@@ -970,7 +971,7 @@ dev.off()
 #  Figure 10 A-season stock proportion comparison by year----
 #---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
 
-# Note - In 2017 there were no Aseason results and thus this figure did not happen.
+# Note - In 2017 there were no A-season results and thus this figure did not happen.
 
 
 #---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
@@ -1051,9 +1052,18 @@ p1 <- newdat %>%
   ylab("Stock proportion") +
   annotate("text",x=0.75,y=0.45,label="Bering Sea\npollock fishery",size=4,hjust=0)  
 
-
+#  The 2017 totalbycatch number in the "numbers" object below are simply copied and pasted in from the AKRO current year tally.
+#  This number is only used in the legend for the figure because the samples sizes in the legend are not the same as the 
+#  numbers that are being used for the barplot. 
 numbers <- read_excel("rcode/Data/psc_all_catch_and_genetics.xlsx",sheet="historic_psc_numbers") %>% 
   gather(stock,psc,-c(year,totalbycatch))
+
+#  Extract the current year value from numbers
+thisyear_total <- numbers$totalbycatch[numbers$year==this.year][1]
+
+#  Remove the current year value from numbers because it does not have relevant stock data. 
+numbers <- numbers %>% 
+  filter(year!=this.year)
 
 #  Pull in the 2017 Bayes data for B-season from "stockdata" and "psctotals" objects created previous in this file.
 newnum <- stockdata %>% 
@@ -1110,9 +1120,9 @@ p2 <- newnum %>%
   geom_bar(stat="identity",position="dodge",color="black",size=0.25) + 
   scale_fill_manual(values=c(strongblue,bluegrey,strongred),
                     name="",
-                    labels=c(paste0(" mean 1994,1995,2005-2010 (",formatC(round(1000*sum(num.early$mymean)), format="d", big.mark=","),")"),
-                             paste0(" mean 2011-2016 (",formatC(round(1000*sum(num.recent$mymean)), format="d", big.mark=","),")"),
-                             paste0(" ",this.year," (",formatC(round(1000*newnum$totalbycatch[1]), format="d", big.mark=","),")"))) + 
+                    labels=c(paste0(" mean 1994,1995,2005-2010 (",formatC(round(mean(numbers$totalbycatch[numbers$year<2011])), format="d", big.mark=","),")"),
+                             paste0(" mean 2011-2016 (",formatC(round(mean(numbers$totalbycatch[between(numbers$year,2011,this.year)])), format="d", big.mark=","),")"),
+                             paste0(" ",this.year," (",formatC(thisyear_total, format="d", big.mark=","),")"))) + 
   scale_x_discrete(labels=function(x) str_wrap(as.character(x),width=12)) + 
   theme_bw() + 
   theme(axis.text=element_text(color="black"),
@@ -1123,7 +1133,7 @@ p2 <- newnum %>%
         panel.grid=element_blank(),
         axis.title.x = element_blank()) + 
   geom_errorbar(width=0.2,position=position_dodge(0.9)) + 
-  ylab("Numbers of fish x 1,000")
+  ylab("Number of fish x 1,000")
 
 #  Because the two plots have different numbers of digits in their y-axis scale, the figures don't line up right if you just use grid.arrange. 
 #  Instead the key is to use grid.draw with size="last" so that plot two will be scale to match plot 1.
@@ -1282,19 +1292,20 @@ multiyears %>%
                             "Western AK (Late)",           
                             "Upper/Middle Yukon (Late)",  
                             "SW Alaska (Late)",            
-                            "Eastern GOA/PNW (Late)")) %>% 
+                            "Eastern GOA/PNW (Late)"),
+         myfill=ifelse(year==2017,1,0)) %>% 
   filter(stock!="SW Alaska") %>% 
-  ggplot(aes(factor(temporal),mymean,ymin=ymin,ymax=ymax)) + 
-  geom_bar(stat="identity",position="dodge",fill=strongblue,color="black",size=0.25) + 
+  ggplot(aes(factor(temporal),mymean,ymin=ymin,ymax=ymax,fill=factor(myfill))) + 
+  geom_bar(stat="identity",position="dodge",color="black",size=0.25) + 
   geom_errorbar(width=0.2,position=position_dodge(0.9),size=0.25) + 
   theme_bw() + 
   theme(axis.text.x=element_text(color="black"),
         axis.text.y=element_text(color="black"),
         axis.title=element_text(color="black"),
-        legend.position="top",
+        legend.position="none",
         panel.grid=element_blank(),
         axis.title.x = element_blank()) +  
-  scale_fill_manual(values=mypalette,
+  scale_fill_manual(values=c(strongblue,strongred),
                     name="") + 
   scale_x_discrete(breaks=unique(multiyears$year),labels=c("2011","","2013","","2015","","2017")) + 
   ylab("Stock proportion") + 
@@ -1673,14 +1684,16 @@ current.1 %>%
                            "Eastern GOA/PNW"),
          area=ifelse(group=="WBS",
                      paste0(" West of 170°W (n=",formatC(data$samples[data$area=="WBS"], format="d", big.mark=","),")"),
-                     paste0(" East of 170°W (n=",formatC(data$samples[data$area=="EBS"], format="d", big.mark=","),")"))) %>% 
+                     paste0(" East of 170°W (n=",formatC(data$samples[data$area=="EBS"], format="d", big.mark=","),")")),
+         area=fct_relevel(area,
+                          paste0(" West of 170°W (n=",formatC(data$samples[data$area=="WBS"], format="d", big.mark=","),")"))) %>% 
   ggplot(aes(stock,Mean,fill=factor(area),ymin=Lower,ymax=Upper)) + 
   geom_bar(stat="identity",position="dodge",color="black",size=0.25) + 
   geom_errorbar(width=0.2,position=position_dodge(0.9),size=0.25) + 
   theme_bw() + 
   theme(axis.text=element_text(color="black"),
         axis.title=element_text(color="black"),
-        legend.position=c(0.75,0.75),
+        legend.position=c(0.7,0.75),
         legend.box="horizontal",
         legend.background = element_blank(),
         legend.title = element_blank(),
@@ -1689,7 +1702,7 @@ current.1 %>%
   scale_fill_manual(values=mypalette) + 
   scale_x_discrete(labels=function(x) str_wrap(as.character(x),width=12)) + 
   ylab("Stock proportion") +
-  annotate("text",x=2.75,y=0.4,label=paste(this.year,"Bering Sea\npollock fishery"),size=4,hjust=0)  
+  annotate("text",x=3.5,y=0.5,label=paste(this.year,"Bering Sea pollock fishery"),size=4,hjust=0,fontface=2)  
 dev.off()
 
 
