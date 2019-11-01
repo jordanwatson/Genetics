@@ -1,4 +1,4 @@
-#  Pulled from Jordan Watson's Github page on 9/17/19
+﻿#  Pulled from Jordan Watson's Github page on 9/17/19
 #  Updated and renamed for 2018 tech memo
 #  Original title:  Genetics/Tech_Memos/Chum_tech_memo_bycatch_from_2017_no_nmfs_areas.R
 
@@ -1735,14 +1735,15 @@ dev.off()
 #  document and paste into figure to get "East of 170°W".  Reason this might happen - copy and pasting from R code text file into R project.
 
 #  Read the data and filter for B season and any spatial groupings you want. In this case, EBS and WBS.
-data <- read_excel("rcode/Data/psc_all_catch_and_genetics.xlsx",sheet="Genetic BSAI Salmon Bycatch") %>% 
+data <- read_excel("rcode/Data/n=3474 All Scores & Binary.xlsx",sheet="n=3474 All Scores & Binary") %>% 
+  filter(GOA_Rep_or_Extra_cluster=="REP") %>% 
   rename_all(tolower) %>% 
-  filter(nmfs_area %in%c(509,513,516,517,519,521,523,524) & season=="B") %>%
-  mutate(area=ifelse(nmfs_area<521,"EBS","WBS")) %>% 
+  filter(nmfs_reporting_area %in%c(509,513,516,517,519,521,523,524) & bsai_season=="B") %>%
+  mutate(area=ifelse(nmfs_reporting_area<521,"EBS","WBS")) %>% 
   group_by(area) %>%
-  summarise(vessels=length(unique(catcher_vessel_adfg)),
-            chum=sum(`sum(number_chum)`),
-            samples=sum(`sum(total_chum_finclip)`))
+  summarise(vessels=length(unique(delivery_vessel_adfg)),
+            samples=sum(count_of_unique_samples))
+
 
 current.1 <- stockdata %>% 
   filter(group%in%c("WBS","EBS")) %>% 
