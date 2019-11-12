@@ -2,6 +2,8 @@
 #  Author: Jordan Watson, jordan.watson@noaa.gov
 #  Creation date: 10/16/2018
 
+#  If you just want to make figures, you can scroll down to the figures section and read in 
+#  a file that already contains the data.
 
 #---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
 # Load packages ----
@@ -72,6 +74,8 @@ folder.names <- list.files(path="rcode/Data/bayes/sector",pattern=".")
 
 stockcomp<-data.frame()
 
+Region=c("SE Asia","NE Asia","Western AK","Up/Mid Yuk","SW Alaska","E GOA/PNW")
+
 for(i in 1:length(folder.names)){
   print(i)
   myrgn <- list.files(path=paste0("rcode/Data/bayes/sector/",folder.names[i]),pattern="estimate")
@@ -107,6 +111,8 @@ stockdata <- stockcomp %>%
   dplyr::select(group,Region,`Est. num.`,Mean,SD,`2.5%`,Median,`97.5%`,`P=0`,`Shrink Factor`) %>% 
   arrange(group)
 
+#saveRDS(stockdata,file="rcode/Data/stockcomp_sector.RDS")
+
 #  The following outputs a text file for putting into the report. However, the formatting is lost if you just open it in Excel haphazardly:
 #  1) Go through the delimited file options - 
 #     a) deselect "tab delimited and select "comma delimited".
@@ -133,6 +139,7 @@ for(i in 1:length(groups)){
 sink()
 
 
+
 mygroups <- data.frame(group=c('2013-14_M',	'2013_CP',	'2013_S',	'2014_CP',	'2014_S',	'2015_CP',	'2015_M',	'2015_S',	'2016_CP',	'2016_M',	'2016_S',	'2017_CP',	'2017_S'),
                        year=c('2013-14',	'2013',	'2013',	'2014',	'2014',	'2015',	'2015',	'2015',	'2016',	'2016',	'2016',	'2017',	'2017'),
                        sector=c('Mothership',	'Catcher Processor',	'Shoreside',	'Catcher Processor',	'Shoreside',	'Catcher Processor',	'Mothership',	'Shoreside',	'Catcher Processor',	'Mothership',	'Shoreside',	'Catcher Processor',	'Shoreside'))
@@ -148,6 +155,7 @@ strongblue <- rgb(69,117,180,max=255)
 mypalette <- c(strongred,salmon,yellow,bluegrey,strongblue,periwinkle)
 
 library(cowplot)
+
 
 myplot <- stockdata %>% 
   inner_join(mygroups) %>% 
@@ -211,8 +219,32 @@ stockdata %>%
         axis.text.x=element_text(size=6))
 dev.off()
 
+#  2017 only data for NPFMC presentation (note there is no mothership data for this year)
 
-  
+stockdata <- readRDS("rcode/Data/stockcomp_sector.RDS")
 
+png("Figures/sector_stock_comp_2017_for_NPFMC.png",width=6.5,height=6.5,units="in",res=300)
+stockdata %>% 
+  inner_join(mygroups) %>% 
+  mutate(Region=fct_relevel(Region,
+                            "SE Asia",
+                            "NE Asia",
+                            "Western AK",
+                            "Up/Mid Yuk",
+                            "SW Alaska",
+                            "E GOA/PNW")) %>% 
+  filter(sector!="Mothership" & year==2017) %>% 
+  ggplot(aes(Region,Mean,fill=sector,ymin=`2.5%`,ymax=`97.5%`)) + 
+  geom_bar(stat="identity",position="dodge") + 
+  geom_errorbar(width=0.2,position=position_dodge(0.9),size=0.25) + 
+  theme_bw() + 
+  scale_fill_manual(values=mypalette,guides(name="Sector")) + 
+  ylab("Stock proportion") + 
+  xlab("") + 
+  theme(legend.position=c(0.75,0.75),
+        axis.text.x=element_text(size=9),
+        legend.text = element_text(size=13),
+        panel.grid=element_blank())
+dev.off()  
 
 
