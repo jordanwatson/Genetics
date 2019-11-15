@@ -16,6 +16,16 @@ library(rmapshaper)
 
 #saveRDS(data,file="Genetics_bsai_salmon_bycatch.RDS")
 
+
+CrustaceanOrange2='#D65F00'
+WavesTeal2='#008998'
+SeagrassGreen2='#4C9C2E'
+UrchinPurple2='#625BC4'
+UrchinPurple4='#9A9A9A'
+
+mapbackground <- UrchinPurple4
+clusterpalette <- c(CrustaceanOrange2,WavesTeal2,SeagrassGreen2,UrchinPurple2)
+
 #---------------------------------------------------------------------------------------
 #  Make Alaska Basemap
 #---------------------------------------------------------------------------------------
@@ -30,6 +40,10 @@ ymax <- 61.5
 
 stat <- readOGR(dsn="rcode/Data",layer="adfg_stat_areas_simple") %>% ms_simplify()
 mylabs <- data.frame(id=(as.character(rownames(stat@data))),stat_area=stat@data$STAT_AREA)
+
+nmfs <- readOGR(dsn="rcode/Data",layer="simplenmfs") %>% tidy()
+#nmfslabs <- data.frame(id=(as.character(rownames(stat@data))),stat_area=stat@data$STAT_AREA)
+
 
 # extract centroids of the polygons and combine with stat area labels
 centroids.df <- as.data.frame(coordinates(stat)) %>% 
@@ -91,12 +105,14 @@ png(paste0("Figures/Map_bycatch_clusters_",this.year,".png"),width=6.5,height=5,
 ggplot() + 
   geom_polygon(data=mystat,aes(x=long,y=lat,group=factor(group)),fill=NA,color="grey50",size=0.25) + 
   geom_polygon(data=mycluster,aes(x=long,y=lat,group=factor(group),fill=factor(cluster)),color="black") + 
-  geom_polygon(data=ak,aes(x=long,y=lat,group=factor(group)),fill="grey10") + 
+  geom_polygon(data=nmfs,aes(x=long,y=lat,group=factor(group)),fill=NA,color="black",size=0.7) + 
+  geom_polygon(data=ak,aes(x=long,y=lat,group=factor(group)),fill=mapbackground) + 
   geom_point(data=mychum,aes(x=long,y=lat,size=chum),alpha=0.5) + 
   scale_size(name="",range=c(2,15)) +
   #xlim(xmin,xmax) + ylim(ymin,ymax)
   coord_map("albers",lat0=53.5,lat1=62,xlim=c(xmin,xmax),ylim=c(ymin,ymax)) + 
   guides(fill=FALSE,size=FALSE) +
+  scale_fill_manual(values=clusterpalette) +
   theme_bw() + 
   theme(axis.title=element_blank())
 dev.off()
