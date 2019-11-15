@@ -62,7 +62,7 @@ data <- readRDS("rcode/Data/Genetics_bsai_salmon_bycatch_through_11142019.RDS") 
   filter(season=="B")
 
 #  Define your year of interest! Yo.
-this.year <- 2017
+this.year <- 2018
 
 #  Identify all stat areas from 2013 to the year of interest in which at least three vessels caught chum
 mystatarea <- data %>% 
@@ -76,8 +76,9 @@ mystatarea <- data %>%
 mychum <- data %>% 
   filter(year==this.year) %>% 
   group_by(stat_area) %>% 
-  summarise(chum=sum(number_chum)) %>% 
-  filter(chum>0) %>% 
+  summarise(chum=sum(number_chum),
+            vessels=length(unique(catcher_vessel_adfg))) %>% 
+  filter(chum>0 & vessels>2) %>% 
   inner_join(centroids.df)
 
 #  stat is a map of the stat areas but the data frame of these stat areas created by tidy(stat)
