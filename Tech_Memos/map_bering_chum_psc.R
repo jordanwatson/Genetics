@@ -7,6 +7,7 @@ library(maps)
 library(mapdata)
 library(PBSmapping)
 library(rmapshaper)
+library(ggsn)
 
 #  Read all bycatch data from akfin database. To just add a year, you could use the previous year's file
 #  Genetics_bsai_salmon_bycatch.RDS and run the sql query for just your new year. 
@@ -17,7 +18,7 @@ library(rmapshaper)
 #saveRDS(data,file="Genetics_bsai_salmon_bycatch.RDS")
 
 
-CrustaceanOrange2='#D65F00'
+CrustaceanOrange2='#FF8300'
 WavesTeal2='#008998'
 SeagrassGreen2='#4C9C2E'
 UrchinPurple2='#625BC4'
@@ -62,7 +63,7 @@ data <- readRDS("rcode/Data/Genetics_bsai_salmon_bycatch_through_11142019.RDS") 
   filter(season=="B")
 
 #  Define your year of interest! Yo.
-this.year <- 2018
+this.year <- 2017
 
 #  Identify all stat areas from 2013 to the year of interest in which at least three vessels caught chum
 mystatarea <- data %>% 
@@ -105,18 +106,45 @@ mycluster <- mystat %>%
 png(paste0("Figures/Map_bycatch_clusters_",this.year,".png"),width=6.5,height=5,units="in",res=1200)
 ggplot() + 
   geom_polygon(data=mystat,aes(x=long,y=lat,group=factor(group)),fill=NA,color="grey50",size=0.25) + 
-  geom_polygon(data=mycluster,aes(x=long,y=lat,group=factor(group),fill=factor(cluster)),color="black") + 
+  geom_polygon(data=mycluster,aes(x=long,y=lat,group=factor(group),fill=factor(cluster)),color="black",alpha=0.5,size=0.25) + 
   geom_polygon(data=nmfs,aes(x=long,y=lat,group=factor(group)),fill=NA,color="black",size=0.7) + 
   geom_polygon(data=ak,aes(x=long,y=lat,group=factor(group)),fill=mapbackground) + 
   geom_point(data=mychum,aes(x=long,y=lat,size=chum),alpha=0.5) + 
   scale_size(name="",range=c(2,15)) +
-  #xlim(xmin,xmax) + ylim(ymin,ymax)
   coord_map("albers",lat0=53.5,lat1=62,xlim=c(xmin,xmax),ylim=c(ymin,ymax)) + 
+    guides(fill=FALSE,size=FALSE) +
+  scale_fill_manual(values=clusterpalette) +
+  theme_bw() + 
+  theme(axis.title=element_blank(),
+        axis.text=element_blank(),
+        axis.ticks = element_blank()) +
+  ggsn::scalebar(data=mycluster,dist = 50, dist_unit = "nm",transform = TRUE,location="bottomright",st.size=3,height=0.015)
+dev.off()
+
+
+png(paste0("Figures/Map_bycatch_clusters_no_projection",this.year,".png"),width=6.5,height=5,units="in",res=1200)
+ggplot() + 
+  geom_polygon(data=mystat,aes(x=long,y=lat,group=factor(group)),fill=NA,color="grey50",size=0.25) + 
+  geom_polygon(data=mycluster,aes(x=long,y=lat,group=factor(group),fill=factor(cluster)),color="black",alpha=0.5,size=0.25) + 
+  geom_polygon(data=nmfs,aes(x=long,y=lat,group=factor(group)),fill=NA,color="black",size=0.725) + 
+  geom_polygon(data=ak,aes(x=long,y=lat,group=factor(group)),fill=mapbackground) + 
+  geom_point(data=mychum,aes(x=long,y=lat,size=chum),alpha=0.5) + 
+  scale_size(name="",range=c(2,15)) +
+  #xlim(xmin,xmax) + ylim(ymin,ymax)
+  #coord_map("albers",lat0=53.5,lat1=62,xlim=c(xmin,xmax),ylim=c(ymin,ymax)) + 
+  coord_map(xlim=c(-180,xmax),ylim=c(ymin,ymax)) + 
   guides(fill=FALSE,size=FALSE) +
   scale_fill_manual(values=clusterpalette) +
   theme_bw() + 
-  theme(axis.title=element_blank())
+  theme(axis.title=element_blank()) +
+  ggsn::scalebar(data=mycluster,dist = 50, dist_unit = "nm",transform = TRUE,location="bottomright",st.size=3,height=0.015)
 dev.off()
+
+
+
+
+
+
 
 
 #  This creates a map where all clusters are grey.
