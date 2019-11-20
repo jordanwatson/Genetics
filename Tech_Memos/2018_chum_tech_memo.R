@@ -1,4 +1,4 @@
-﻿#  Pulled from Jordan Watson's Github page on 9/17/19
+#  Pulled from Jordan Watson's Github page on 9/17/19
 #  Updated and renamed for 2018 tech memo
 #  Original title:  Genetics/Tech_Memos/Chum_tech_memo_bycatch_from_2017_no_nmfs_areas.R
 
@@ -21,7 +21,7 @@
 #  bayes folder with all subsets  (make sure folder names match "mygroupings" names exactly as those
 #    in "Create "mystockcomps.csv" stock composition file" R chunk.  Example below:
 #    "GOA","B-season","BS Early","BS Middle","BS Late","EBS","WBS","CP","M","S",
-"Cluster 1 Early","Cluster 1 Late","Cluster 2 Early","Cluster 2 Late","Cluster 3 Early","Cluster 3 Late","Cluster 4 Late"
+#  "Cluster 1 Early","Cluster 1 Late","Cluster 2 Early","Cluster 2 Late","Cluster 3 Early","Cluster 3 Late","Cluster 4 Late"
 #  Create an empty "Figures" folder for output figures	
 
 #  Suggestion:  Before running R code, copy and paste available AKRO total bycatch numbers for current year into the 
@@ -57,6 +57,7 @@ library(gridExtra)
 library(grid)
 library(stringi)
 library(scales)
+library(cowplot)
 
 #---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
 # Color palette ----
@@ -96,6 +97,15 @@ mygroupings <- c("GOA","B_rep_all","B_rep_early","B_rep_middle","B_rep_late",
                  "2018_CP","2018_M","2018_S")
 
 this.year <- 2018
+
+goa.a.start <- as.POSIXct(strptime("01/20/2018","%m/%d/%Y"))
+goa.a.end <- as.POSIXct(strptime("03/09/2018","%m/%d/%Y"))
+goa.b.start <- as.POSIXct(strptime("03/10/2018","%m/%d/%Y"))
+goa.b.end <- as.POSIXct(strptime("05/31/2018","%m/%d/%Y"))
+goa.c.start <- as.POSIXct(strptime("08/25/2018","%m/%d/%Y"))
+goa.c.end <- as.POSIXct(strptime("09/30/2018","%m/%d/%Y"))
+goa.d.start <- as.POSIXct(strptime("10/01/2018","%m/%d/%Y"))
+goa.d.end <- as.POSIXct(strptime("10/31/2018","%m/%d/%Y"))
 
 #  B-season ends during the same stat week as A-season ends. For weekly illustrations 
 awkstart <- as.numeric(strftime(goa.a.start,format="%W")) 
@@ -458,12 +468,15 @@ for(i in 1:length(groups)){
 }
 sink()
 
-
+# Save a version of stockdata as a non-formatted file for later use.
+#saveRDS(stockdata,file="rcode/Data/stockdata.RDS")
 
 #  At this point, all required data for the rest of this R project is available, now that "mystockcomps.csv" was created 
 #  in R code chunk above.  Copy and paste stock information into "historic_psc_numbers", "historic_stock_proportions", 
 #  and "historicGOA_stockproportions" worksheets.
 
+#  read in the stockdata file so you don't have to run all that previous crap.
+#stockdata <- reaRDS("rcode/Data/stockdata.RDS")
 
 #---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
 #  Figure 2 non Chinook PSC by year----
@@ -1845,3 +1858,110 @@ current.1 %>%
   facet_wrap(~area,ncol=1)
 dev.off()
 
+#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
+#  Figure 16 Fishing Sector ----
+#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
+
+mygroupings_sector <- c("CP","M","S")
+
+png("Figures/sector_stock_comp_2018.png",width=6.5,height=3,units="in",res=300)
+stockcomp %>% 
+  filter(group%in%mygroupings_sector) %>% 
+  mutate(Region=fct_relevel(Region,
+                            "SE Asia",
+                            "NE Asia",
+                            "Western AK",
+                            "Up/Mid Yuk",
+                            "SW Alaska",
+                            "E GOA/PNW"),
+         Region=fct_recode(Region,
+                           "Eastern GOA/PNW"="E GOA/PNW"),
+         group=fct_recode(group,"Catcher-processor"="CP",
+                          "Mothership"="M",
+                          "Shoreside"="S")) %>% 
+  ggplot(aes(Region,Mean,fill=group,ymin=`2.5%`,ymax=`97.5%`)) + 
+  geom_bar(stat="identity",position="dodge") + 
+  geom_errorbar(width=0.2,position=position_dodge(0.9),size=0.25) + 
+  theme_bw() + 
+  scale_fill_manual(values=mypalette,guides(name="Sector")) + 
+  ylab("Stock proportion") + 
+  xlab("") + 
+  theme(legend.position=c(0.75,0.75),
+        axis.text.x=element_text(size=9),
+        legend.text = element_text(size=13),
+        panel.grid=element_blank())
+dev.off()  
+
+#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
+#  Cluster early and late figures for mappy map ----
+#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---#---
+
+#  Create a dataset that only includes groups with the word cluster in their name.
+clusterdat <- stockdata[grep("Cluster",stockdata$group),]
+
+myRegion=c("SE Asia","NE Asia","Western AK","Up/Mid Yuk","SW Alaska","E GOA/PNW")
+
+tempdat <- clusterdat %>% 
+  mutate(clustnum=substr(group,9,9),
+         period=substr(group,11,nchar(as.character(group)))) %>% 
+  right_join(expand.grid(clustnum=as.character(1:4),period=c("Early","Late"),Region=Region)) %>% 
+  mutate(Region=fct_relevel(as.factor(Region),myRegion),
+         clustnum=fct_rev(clustnum),
+         Mean=ifelse(is.na(Mean),0,Mean),
+         newgroup=paste0(Region," (",period,")"),
+         newgroup=fct_relevel(as.factor(newgroup),"SE Asia (Early)","NE Asia (Early)","Western AK (Early)","Up/Mid Yuk (Early)","SW Alaska (Early)","E GOA/PNW (Early)",
+                              "SE Asia (Late)","NE Asia (Late)","Western AK (Late)","Up/Mid Yuk (Late)","SW Alaska (Late)","E GOA/PNW (Late)"))
+
+
+png("Figures/Early_Cluster.png",width=2.25,height=2,units="in",res=300)
+tempdat %>% 
+  filter(period=="Early") %>% 
+  ggplot(aes(clustnum,Mean,fill=Region)) + 
+  geom_bar(stat="identity") + 
+  theme_classic() + 
+  scale_fill_manual(values=mypalette) + 
+  theme(axis.text.y = element_blank(),
+        axis.title=element_blank(),
+        legend.position="none") + 
+  coord_cartesian(expand=FALSE)
+dev.off()
+
+png("Figures/Late_Cluster.png",width=2.25,height=2,units="in",res=300)
+tempdat %>% 
+  filter(period=="Late") %>% 
+  ggplot(aes(clustnum,Mean,fill=Region)) + 
+  geom_bar(stat="identity") + 
+  theme_classic() + 
+  scale_fill_manual(values=mypalette) + 
+  theme(axis.text.y = element_blank(),
+        axis.title=element_blank(),
+        legend.position="none") + 
+  coord_cartesian(expand=FALSE)
+dev.off()
+
+png("Figures/Legend.png",res=300,width=3,height=2,units="in")
+ggdraw(cowplot::get_legend(tempdat %>% 
+                             ggplot(aes(clustnum,Mean,fill=Region)) + 
+                             geom_bar(stat="identity") +
+                             scale_fill_manual(values=mypalette) + 
+                             theme(legend.title=element_blank())+
+                             guides(fill=guide_legend(ncol=3)))) 
+  
+dev.off()
+
+
+png("Figures/Cluster_Stock_Period.png",width=6.5,height=4.25,units="in",res=300)
+tempdat %>% 
+  mutate(ymin=ifelse((Mean-SD)<0,0,(Mean-SD))) %>% 
+  ggplot(aes(clustnum,Mean,ymin=ymin,ymax=Mean+SD)) + 
+  geom_bar(stat="identity",fill=strongblue) + 
+  geom_errorbar(width=0.2,position=position_dodge(0.9),size=0.25) +
+  scale_fill_manual(values=mypalette) + 
+  theme_bw() +
+  theme(legend.position="none",
+        panel.grid = element_blank()) + 
+  facet_grid(period~Region)  +
+  xlab("Cluster") + 
+  ylab("Stock proportion") + 
+  scale_y_continuous(expand=c(0.03,0))
+dev.off()
